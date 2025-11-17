@@ -429,6 +429,57 @@ app.post('/api/profile/password', authenticateToken, async (req, res) => {
   }
 });
 
+// Helper function to update user streak
+function updateUserStreak(username, todayStr) {
+  const users = loadData('users.json');
+  const user = users.find(u => u.username === username);
+  
+  if (!user) return;
+
+  // Initialize streak fields if they don't exist
+  if (!user.streak) user.streak = 0;
+  if (!user.lastPhotoDate) user.lastPhotoDate = null;
+  if (!user.achievements) user.achievements = [];
+
+  const yesterday = new Date(todayStr);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  // Check if user posted yesterday
+  if (user.lastPhotoDate === yesterdayStr) {
+    // Continue streak
+    user.streak += 1;
+  } else if (user.lastPhotoDate === todayStr) {
+    // Already posted today, don't change streak
+    return;
+  } else {
+    // Streak broken, start new streak
+    user.streak = 1;
+  }
+
+  user.lastPhotoDate = todayStr;
+  
+  // Check for streak achievements
+  checkAchievements(user);
+  
+  saveData('users.json', users);
+}
+
+// Helper function to check and award achievements
+function checkAchievements(user) {
+  if (!user.achievements) user.achievements = [];
+
+  // 7-day streak achievement
+  if (user.streak >= 7 && !user.achievements.includes('streak_7')) {
+    user.achievements.push('streak_7');
+  }
+
+  // 30-day streak achievement
+  if (user.streak >= 30 && !user.achievements.includes('streak_30')) {
+    user.achievements.push('streak_30');
+  }
+}
+
 // ==================== CHALLENGE ENDPOINTS ====================
 
 app.get('/api/challenge/today', authenticateToken, (req, res) => {
@@ -439,20 +490,18 @@ app.get('/api/challenge/today', authenticateToken, (req, res) => {
     const todayChallenge = challenges[dayOfYear % challenges.length];
 
     const startTime = new Date();
-    startTime.setHours(10, 0, 0, 0); // 10:00 Uhr
+    startTime.setHours(0, 0, 0, 0); // 00:00 Uhr
     
     const endTime = new Date(startTime);
-    endTime.setHours(startTime.getHours() + 2); // 2 Stunden Zeitfenster
+    endTime.setHours(23, 59, 59, 999); // 23:59:59 Uhr
 
     res.json({
       success: true,
-      data: {
-        challenge: {
-          ...todayChallenge,
-          date: today.toISOString().split('T')[0],
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString()
-        }
+      challenge: {
+        ...todayChallenge,
+        date: today.toISOString().split('T')[0],
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString()
       }
     });
   } catch (error) {
@@ -462,6 +511,34 @@ app.get('/api/challenge/today', authenticateToken, (req, res) => {
 });
 
 // ==================== PHOTO ENDPOINTS ====================
+
+// Get user stats (streak and achievements)
+app.get('/api/users/stats', authenticateToken, (req, res) => {
+  try {
+    const username = req.user.username;
+    const users = loadData('users.json');
+    const user = users.find(u => u.username === username);
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Benutzer nicht gefunden' 
+      });
+    }
+
+    res.json({
+      success: true,
+      streak: user.streak || 0,
+      achievements: user.achievements || []
+    });
+  } catch (error) {
+    console.error('Stats-Fehler:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Serverfehler' 
+    });
+  }
+});
 
 app.post('/api/photos/upload', authenticateToken, (req, res) => {
   try {
@@ -483,47 +560,46 @@ app.post('/api/photos/upload', authenticateToken, (req, res) => {
     const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
     const todayChallenge = challenges[dayOfYear % challenges.length];
 
-    const startTime = new Date();
-    startTime.setHours(10, 0, 0, 0);
-    const endTime = new Date(startTime);
-    endTime.setHours(startTime.getHours() + 2);
-
-    const isLate = today > endTime;
-
-    const existingPhotoIndex = photos.findIndex(
+    // Check if user already has 3 photos today
+    const todayPhotosCount = photos.filter(
       p => p.username === username && p.date === todayStr
-    );
+    ).length;
+
+    if (todayPhotosCount >= 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Du hast heute bereits 3 Fotos hochgeladen'
+      });
+    }
 
     const newPhoto = {
-      id: `${username}_${todayStr}`,
+      id: `${username}_${todayStr}_${Date.now()}`,
       username,
       date: todayStr,
       imageData,
       caption: caption || '',
       challenge: todayChallenge.title,
-      isLate,
       likes: [],
       comments: [],
       createdAt: today.toISOString()
     };
 
-    if (existingPhotoIndex >= 0) {
-      photos[existingPhotoIndex] = newPhoto;
-    } else {
-      photos.push(newPhoto);
-    }
+    photos.push(newPhoto);
 
     saveData('photos.json', photos);
 
-    // Notify friends about new photo (only if it's a new upload, not an update)
-    if (existingPhotoIndex < 0) {
-      notifyFriendsAboutPhoto(username);
+    // Update user streak if this is their first photo today
+    if (todayPhotosCount === 0) {
+      updateUserStreak(username, todayStr);
     }
+
+    // Notify friends about new photo
+    notifyFriendsAboutPhoto(username);
 
     res.json({
       success: true,
       message: 'Foto hochgeladen',
-      data: { photo: newPhoto }
+      photo: newPhoto
     });
   } catch (error) {
     console.error('Upload-Fehler:', error);
@@ -573,13 +649,13 @@ app.get('/api/photos/me/today', authenticateToken, (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const username = req.user.username;
 
-    const myPhoto = photos.find(p => 
+    const myPhotos = photos.filter(p => 
       p.username === username && p.date === today
-    );
+    ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
     res.json({
       success: true,
-      photo: myPhoto || null
+      photos: myPhotos
     });
   } catch (error) {
     console.error('Mein-Foto-Fehler:', error);
