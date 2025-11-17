@@ -8,8 +8,8 @@ const os = require('os');
 const cron = require('node-cron');
 
 const app = express();
-const PORT = 3000;
-const JWT_SECRET = 'daily-vibes-secret-key-2024'; // In Production: Nutze Umgebungsvariable!
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'daily-vibes-secret-key-2024'; // In Production: Nutze Umgebungsvariable!
 
 // Middleware
 app.use(cors());
