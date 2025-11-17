@@ -965,10 +965,8 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
     
     res.json({
       success: true,
-      data: { 
-        notifications: userNotifications,
-        unreadCount 
-      }
+      notifications: userNotifications,
+      unreadCount 
     });
   } catch (error) {
     console.error('Get notifications error:', error);
