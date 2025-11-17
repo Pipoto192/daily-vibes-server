@@ -575,7 +575,17 @@ app.post('/api/admin/challenge/set', authenticateAdmin, (req, res) => {
 app.get('/api/admin/challenges', authenticateAdmin, (req, res) => {
   try {
     const challenges = loadData('challenges.json');
-    res.json({ success: true, challenges });
+    res.json({ success: true, data: { challenges } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Admin: Get all photos
+app.get('/api/admin/photos', authenticateAdmin, (req, res) => {
+  try {
+    const photos = loadData('photos.json');
+    res.json({ success: true, data: { photos } });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Serverfehler' });
   }
