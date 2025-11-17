@@ -23,7 +23,7 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 // Admin usernames
-const ADMIN_USERS = ['admin', 'timo'];
+const ADMIN_USERS = ['admin', 'dailyadmin'];
 
 // Helper Functions
 function loadData(filename) {
