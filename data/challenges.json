@@ -62,8 +62,8 @@
   {
     "id": 12,
     "icon": "🍽️",
-    "title": "Mittagessen",
-    "description": "Was gibt es heute zu essen?"
+    "title": "essen",
+    "description": "zeig das essen was du gerade isst"
   },
   {
     "id": 13,
@@ -78,22 +78,10 @@
     "description": "Haustier oder Tier das du siehst"
   },
   {
-    "id": 15,
-    "icon": "🎨",
-    "title": "Farben",
-    "description": "Etwas Buntes in deiner Nähe"
-  },
-  {
     "id": 16,
     "icon": "🌳",
     "title": "Natur",
     "description": "Pflanze, Baum oder etwas Grünes"
-  },
-  {
-    "id": 17,
-    "icon": "💡",
-    "title": "Licht & Schatten",
-    "description": "Spiel mit Licht und Schatten"
   },
   {
     "id": 18,
