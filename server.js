@@ -848,7 +848,13 @@ app.post('/api/photos/comment', authenticateToken, (req, res) => {
 
     // Notify photo owner about new comment
     if (photoUsername !== username) {
-      notifyUser(photoUsername, `${username} hat dein Foto kommentiert`);
+      sendNotificationToUser(
+        photoUsername,
+        '💬 Neuer Kommentar',
+        `${username} hat dein Foto kommentiert: "${text.trim()}"`,
+        'comment',
+        username
+      );
     }
 
     res.json({ success: true, message: 'Kommentar hinzugefügt' });
@@ -1142,13 +1148,14 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, 50);
     
-    // All notifications are unread since we delete them when viewed
-    const unreadCount = userNotifications.length;
+    const unreadCount = userNotifications.filter(n => !n.read).length;
     
     res.json({
       success: true,
-      notifications: userNotifications,
-      unreadCount 
+      data: {
+        notifications: userNotifications,
+        unreadCount
+      }
     });
   } catch (error) {
     console.error('Get notifications error:', error);
