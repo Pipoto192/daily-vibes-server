@@ -559,7 +559,7 @@ app.get('/api/photos/today', authenticateToken, (req, res) => {
 
     res.json({
       success: true,
-      data: { photos: todayPhotos }
+      photos: todayPhotos
     });
   } catch (error) {
     console.error('Fotos-Laden-Fehler:', error);
@@ -579,7 +579,7 @@ app.get('/api/photos/me/today', authenticateToken, (req, res) => {
 
     res.json({
       success: true,
-      data: { photo: myPhoto || null }
+      photo: myPhoto || null
     });
   } catch (error) {
     console.error('Mein-Foto-Fehler:', error);
