@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "icon": "😊",
+    "title": "Lächeln",
+    "description": "Zeige dein schönstes Lächeln!"
+  },
+  {
+    "id": 2,
+    "icon": "✌️",
+    "title": "Peace",
+    "description": "Zeig das Peace-Zeichen!"
+  },
+  {
+    "id": 3,
+    "icon": "💼",
+    "title": "Arbeitsplatz",
+    "description": "Zeig deinen Arbeitsplatz ohne aufzuräumen"
+  },
+  {
+    "id": 4,
+    "icon": "🌅",
+    "title": "Morgenblick",
+    "description": "Das Erste nach dem Aufwachen"
+  },
+  {
+    "id": 5,
+    "icon": "🍿",
+    "title": "Snack-Time",
+    "description": "Dein aktueller Snack"
+  },
+  {
+    "id": 6,
+    "icon": "🪟",
+    "title": "Fensterblick",
+    "description": "Foto aus deinem Fenster"
+  },
+  {
+    "id": 7,
+    "icon": "👟",
+    "title": "Schuhe",
+    "description": "Die Schuhe die du gerade trägst"
+  },
+  {
+    "id": 8,
+    "icon": "🎧",
+    "title": "Musik",
+    "description": "Was hörst du gerade?"
+  },
+  {
+    "id": 9,
+    "icon": "☕",
+    "title": "Getränk",
+    "description": "Dein aktuelles Getränk"
+  },
+  {
+    "id": 10,
+    "icon": "📱",
+    "title": "Handy",
+    "description": "Dein Handy-Bildschirm"
+  }
+]
