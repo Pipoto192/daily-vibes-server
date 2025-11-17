@@ -22,6 +22,9 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+// Admin usernames
+const ADMIN_USERS = ['admin', 'timo'];
+
 // Helper Functions
 function loadData(filename) {
   const filePath = path.join(DATA_DIR, filename);
@@ -480,32 +483,100 @@ function checkAchievements(user) {
   }
 }
 
+// Admin Middleware
+function authenticateAdmin(req, res, next) {
+  authenticateToken(req, res, () => {
+    const ADMIN_USERS = ['admin', 'timo'];
+    if (ADMIN_USERS.includes(req.user.username)) {
+      next();
+    } else {
+      res.status(403).json({ success: false, message: 'Admin-Rechte erforderlich' });
+    }
+  });
+}
+
 // ==================== CHALLENGE ENDPOINTS ====================
 
 app.get('/api/challenge/today', authenticateToken, (req, res) => {
   try {
     const challenges = loadData('challenges.json');
     const today = new Date();
-    const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
-    const todayChallenge = challenges[dayOfYear % challenges.length];
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Check for admin override
+    const overrideFile = path.join(DATA_DIR, 'challenge_override.json');
+    let todayChallenge;
+    
+    if (fs.existsSync(overrideFile)) {
+      const override = JSON.parse(fs.readFileSync(overrideFile, 'utf8'));
+      if (override.date === todayStr && override.challengeId) {
+        todayChallenge = challenges.find(c => c.id === override.challengeId);
+      }
+    }
+    
+    // Fallback to day-based selection
+    if (!todayChallenge) {
+      const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
+      todayChallenge = challenges[dayOfYear % challenges.length];
+    }
 
     const startTime = new Date();
-    startTime.setHours(0, 0, 0, 0); // 00:00 Uhr
+    startTime.setHours(0, 0, 0, 0);
     
     const endTime = new Date(startTime);
-    endTime.setHours(23, 59, 59, 999); // 23:59:59 Uhr
+    endTime.setHours(23, 59, 59, 999);
 
     res.json({
       success: true,
       challenge: {
         ...todayChallenge,
-        date: today.toISOString().split('T')[0],
+        date: todayStr,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString()
       }
     });
   } catch (error) {
     console.error('Challenge-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Admin: Set today's challenge
+app.post('/api/admin/challenge/set', authenticateAdmin, (req, res) => {
+  try {
+    const { challengeId } = req.body;
+    const challenges = loadData('challenges.json');
+    
+    const challenge = challenges.find(c => c.id === challengeId);
+    if (!challenge) {
+      return res.status(404).json({ success: false, message: 'Challenge nicht gefunden' });
+    }
+    
+    const today = new Date().toISOString().split('T')[0];
+    const override = { date: today, challengeId };
+    
+    fs.writeFileSync(
+      path.join(DATA_DIR, 'challenge_override.json'),
+      JSON.stringify(override, null, 2)
+    );
+    
+    res.json({ 
+      success: true, 
+      message: `Challenge "${challenge.title}" für heute gesetzt`,
+      challenge 
+    });
+  } catch (error) {
+    console.error('Set Challenge Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Admin: Get all challenges
+app.get('/api/admin/challenges', authenticateAdmin, (req, res) => {
+  try {
+    const challenges = loadData('challenges.json');
+    res.json({ success: true, challenges });
+  } catch (error) {
     res.status(500).json({ success: false, message: 'Serverfehler' });
   }
 });
