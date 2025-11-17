@@ -2,7 +2,6 @@
 node_modules/
 npm-debug.log
 yarn-error.log
-package-lock.json
 
 # Data files (contains user data and images)
 data/users.json
