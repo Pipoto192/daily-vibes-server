@@ -54,9 +54,123 @@
     "description": "Dein aktuelles Getränk"
   },
   {
-    "id": 10,
-    "icon": "📱",
-    "title": "Handy",
-    "description": "Dein Handy-Bildschirm"
+    "id": 11,
+    "icon": "🌤️",
+    "title": "Himmel",
+    "description": "Ein Foto vom Himmel über dir"
+  },
+  {
+    "id": 12,
+    "icon": "🍽️",
+    "title": "Mittagessen",
+    "description": "Was gibt es heute zu essen?"
+  },
+  {
+    "id": 13,
+    "icon": "🚗",
+    "title": "Unterwegs",
+    "description": "Zeig wo du gerade bist"
+  },
+  {
+    "id": 14,
+    "icon": "🐾",
+    "title": "Tier",
+    "description": "Haustier oder Tier das du siehst"
+  },
+  {
+    "id": 15,
+    "icon": "🎨",
+    "title": "Farben",
+    "description": "Etwas Buntes in deiner Nähe"
+  },
+  {
+    "id": 16,
+    "icon": "🌳",
+    "title": "Natur",
+    "description": "Pflanze, Baum oder etwas Grünes"
+  },
+  {
+    "id": 17,
+    "icon": "💡",
+    "title": "Licht & Schatten",
+    "description": "Spiel mit Licht und Schatten"
+  },
+  {
+    "id": 18,
+    "icon": "📚",
+    "title": "Lesen",
+    "description": "Dein aktuelles Buch oder Magazin"
+  },
+  {
+    "id": 19,
+    "icon": "🎮",
+    "title": "Gaming",
+    "description": "Was zockst du gerade?"
+  },
+  {
+    "id": 20,
+    "icon": "🌙",
+    "title": "Abendroutine",
+    "description": "Was machst du vorm Schlafen?"
+  },
+  {
+    "id": 21,
+    "icon": "👔",
+    "title": "Outfit",
+    "description": "Dein Outfit des Tages"
+  },
+  {
+    "id": 22,
+    "icon": "🛏️",
+    "title": "Lieblingsort",
+    "description": "Dein gemütlichster Platz"
+  },
+  {
+    "id": 23,
+    "icon": "🎯",
+    "title": "Hobby",
+    "description": "Zeig dein aktuelles Hobby"
+  },
+  {
+    "id": 24,
+    "icon": "🍕",
+    "title": "Lieblingsessen",
+    "description": "Dein Comfort Food"
+  },
+  {
+    "id": 25,
+    "icon": "🎬",
+    "title": "Netflix & Chill",
+    "description": "Was schaust du gerade?"
+  },
+  {
+    "id": 26,
+    "icon": "🏃",
+    "title": "Sport",
+    "description": "Zeig deine sportliche Seite"
+  },
+  {
+    "id": 27,
+    "icon": "🎉",
+    "title": "Stimmung",
+    "description": "Zeig wie du dich heute fühlst"
+  },
+  {
+    "id": 28,
+    "icon": "🔧",
+    "title": "DIY",
+    "description": "Zeig was du gerade baust/machst"
+  },
+  {
+    "id": 29,
+    "icon": "🌈",
+    "title": "Highlight",
+    "description": "Das Beste was dir heute passiert ist"
+  },
+  {
+    "id": 30,
+    "icon": "🤪",
+    "title": "Verrückt",
+    "description": "Mach ein lustiges Gesicht!"
   }
 ]

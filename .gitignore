@@ -6,6 +6,7 @@ yarn-error.log
 # Data files (contains user data and images)
 data/users.json
 data/photos.json
+data/notifications.json
 
 # Keep challenges.json in git (static data)
 # data/challenges.json
