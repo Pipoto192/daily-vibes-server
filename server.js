@@ -486,7 +486,7 @@ function checkAchievements(user) {
 // Admin Middleware
 function authenticateAdmin(req, res, next) {
   authenticateToken(req, res, () => {
-    const ADMIN_USERS = ['admin', 'timo'];
+    const ADMIN_USERS = ['admin'];
     if (ADMIN_USERS.includes(req.user.username)) {
       next();
     } else {
@@ -836,24 +836,48 @@ app.post('/api/photos/comment', authenticateToken, (req, res) => {
 
     saveData('photos.json', photos);
 
-    // Send notification to photo owner
+    // Notify photo owner about new comment
     if (photoUsername !== username) {
-      sendNotificationToUser(
-        photoUsername,
-        '💬 Neuer Kommentar!',
-        `${username}: ${text.trim().substring(0, 50)}${text.length > 50 ? '...' : ''}`,
-        'comment',
-        username,
-        { text: text.trim() }
-      );
+      notifyUser(photoUsername, `${username} hat dein Foto kommentiert`);
     }
 
-    res.json({
-      success: true,
-      message: 'Kommentar hinzugefügt'
-    });
+    res.json({ success: true, message: 'Kommentar hinzugefügt' });
   } catch (error) {
     console.error('Kommentar-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Delete photo (only own photos)
+app.delete('/api/photos/delete', authenticateToken, (req, res) => {
+  try {
+    const { photoId } = req.body;
+    const username = req.user.username;
+
+    const photos = loadData('photos.json');
+    const photoIndex = photos.findIndex(p => p.id === photoId);
+
+    if (photoIndex === -1) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Foto nicht gefunden' 
+      });
+    }
+
+    // Check if user owns this photo
+    if (photos[photoIndex].username !== username) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Du kannst nur deine eigenen Fotos löschen' 
+      });
+    }
+
+    photos.splice(photoIndex, 1);
+    saveData('photos.json', photos);
+
+    res.json({ success: true, message: 'Foto gelöscht' });
+  } catch (error) {
+    console.error('Delete-Fehler:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
   }
 });
