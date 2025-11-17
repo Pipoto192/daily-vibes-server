@@ -961,7 +961,8 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, 50);
     
-    const unreadCount = userNotifications.filter(n => !n.read).length;
+    // All notifications are unread since we delete them when viewed
+    const unreadCount = userNotifications.length;
     
     res.json({
       success: true,
