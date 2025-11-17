@@ -917,19 +917,15 @@ app.get('/api/friends/requests', authenticateToken, (req, res) => {
 app.post('/api/notifications/read', authenticateToken, (req, res) => {
   try {
     const username = req.user.username;
-    const notifications = loadData('notifications.json');
+    let notifications = loadData('notifications.json');
     
-    // Mark all user's notifications as read
-    notifications.forEach(n => {
-      if (n.username === username) {
-        n.read = true;
-      }
-    });
+    // Delete all user's notifications instead of marking as read
+    notifications = notifications.filter(n => n.username !== username);
     
     saveData('notifications.json', notifications);
-    res.json({ success: true, message: 'Benachrichtigungen als gelesen markiert' });
+    res.json({ success: true, message: 'Benachrichtigungen gelöscht' });
   } catch (error) {
-    console.error('Mark notifications read error:', error);
+    console.error('Delete notifications error:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
   }
 });
