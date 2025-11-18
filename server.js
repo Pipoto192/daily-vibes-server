@@ -674,13 +674,73 @@ app.post('/api/profile/email', authenticateToken, async (req, res) => {
       });
     }
     
+    // Generate verification token for new email
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
     user.email = newEmail;
+    user.emailVerified = false; // Require re-verification
+    user.verificationToken = verificationToken;
+    user.verificationTokenExpiry = verificationTokenExpiry;
     await user.save();
+    
+    // Send verification email
+    if (emailTransporter && process.env.EMAIL_USER && process.env.APP_URL) {
+      try {
+        const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
+        await emailTransporter.sendMail({
+          from: `"Daily Vibes" <${process.env.EMAIL_USER}>`,
+          to: newEmail,
+          subject: '📧 Bestätige deine neue Email-Adresse',
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #ff6b9d 0%, #c239b3 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .content { background: white; padding: 30px; border: 1px solid #eee; }
+                .button { display: inline-block; background: linear-gradient(135deg, #ff6b9d 0%, #c239b3 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; margin: 20px 0; }
+                .footer { text-align: center; color: #999; font-size: 12px; margin-top: 20px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>📧 Email-Adresse bestätigen</h1>
+                </div>
+                <div class="content">
+                  <p>Hallo ${username}!</p>
+                  <p>Du hast deine Email-Adresse zu <strong>${newEmail}</strong> geändert.</p>
+                  <p>Bitte bestätige deine neue Email-Adresse, indem du auf den Button klickst:</p>
+                  <div style="text-align: center;">
+                    <a href="${verificationUrl}" class="button">Email bestätigen</a>
+                  </div>
+                  <p style="color: #999; font-size: 12px;">Oder kopiere diesen Link in deinen Browser:<br>${verificationUrl}</p>
+                  <p style="color: #999; font-size: 12px; margin-top: 30px;">Dieser Link ist 24 Stunden gültig.</p>
+                </div>
+                <div class="footer">
+                  <p>Daily Vibes - Teile deine Momente 📸</p>
+                </div>
+              </div>
+            </body>
+            </html>
+          `
+        });
+        console.log(`✅ Email-Änderungs-Bestätigung gesendet an ${newEmail}`);
+      } catch (emailError) {
+        console.error('❌ Fehler beim Email-Versand:', emailError);
+      }
+    }
     
     res.json({
       success: true,
-      message: 'Email aktualisiert',
-      data: { user: sanitizeUser(user) }
+      message: 'Bestätigungs-Email gesendet. Bitte prüfe dein Postfach.',
+      data: { 
+        user: sanitizeUser(user),
+        emailSent: !!emailTransporter 
+      }
     });
   } catch (error) {
     console.error('Email-Änderungs-Fehler:', error);
