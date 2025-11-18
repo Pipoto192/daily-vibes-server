@@ -1036,9 +1036,17 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
       date: today
     }).sort({ createdAt: 1 });
 
+    // Add user streak and achievements to own photos
+    const user = await User.findOne({ username });
+    const photosWithUserData = myPhotos.map(photo => ({
+      ...photo.toObject(),
+      userStreak: user?.streak || 0,
+      userAchievements: [] // Could add achievements later
+    }));
+
     res.json({
       success: true,
-      photos: myPhotos
+      photos: photosWithUserData
     });
   } catch (error) {
     console.error('Mein-Foto-Fehler:', error);
