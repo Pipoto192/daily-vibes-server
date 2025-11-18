@@ -4,10 +4,23 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const cron = require('node-cron');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'daily-vibes-secret-key-2024';
+
+// Email transporter configuration (Brevo/Sendinblue)
+const emailTransporter = nodemailer.createTransporter({
+  host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+  port: process.env.EMAIL_PORT || 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 // MONGODB_URI is REQUIRED - no fallback to localhost
 if (!process.env.MONGODB_URI) {
@@ -36,6 +49,9 @@ const userSchema = new mongoose.Schema({
   lastPhotoDate: { type: String, default: null },
   achievements: [{ type: String }],
   memoriesPublic: { type: Boolean, default: false },
+  emailVerified: { type: Boolean, default: false },
+  verificationToken: { type: String, default: null },
+  verificationTokenExpiry: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -281,6 +297,12 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Generate verification token valid for 24 hours
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpiry = new Date();
+    tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+    
     const newUser = new User({
       username,
       email,
@@ -288,19 +310,76 @@ app.post('/api/auth/register', async (req, res) => {
       profileImage: null,
       friends: [],
       pendingRequests: [],
+      emailVerified: false,
+      verificationToken,
+      verificationTokenExpiry: tokenExpiry,
       createdAt: new Date()
     });
 
     await newUser.save();
 
+    // Send verification email
+    const verificationLink = `${process.env.APP_URL || 'https://dailyvibes.vercel.app'}/verify-email?token=${verificationToken}`;
+    
+    const mailOptions = {
+      from: `Daily Vibes <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: '📸 Daily Vibes - Bestätige deine Email',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #FF6B9D 0%, #FFA07A 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 32px;">📸 Daily Vibes</h1>
+          </div>
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333;">Willkommen, ${username}! 🎉</h2>
+            <p style="color: #666; font-size: 16px; line-height: 1.6;">
+              Vielen Dank für deine Registrierung bei Daily Vibes! Um deinen Account zu aktivieren, 
+              bestätige bitte deine Email-Adresse.
+            </p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verificationLink}" 
+                 style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #FF6B9D 0%, #FFA07A 100%); 
+                        color: white; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">
+                ✅ Email bestätigen
+              </a>
+            </div>
+            <p style="color: #999; font-size: 14px;">
+              Oder kopiere diesen Link in deinen Browser:<br>
+              <a href="${verificationLink}" style="color: #FF6B9D; word-break: break-all;">${verificationLink}</a>
+            </p>
+            <p style="color: #999; font-size: 12px; margin-top: 30px;">
+              ⏰ Dieser Link ist 24 Stunden gültig.<br>
+              Hast du dich nicht registriert? Ignoriere diese Email einfach.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    // Try to send email
+    let emailSent = false;
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        await emailTransporter.sendMail(mailOptions);
+        emailSent = true;
+      } catch (emailError) {
+        console.error('Email-Send-Fehler:', emailError);
+        // Continue registration even if email fails
+      }
+    }
+
     const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '30d' });
 
     res.json({
       success: true,
-      message: 'Registrierung erfolgreich',
+      message: emailSent 
+        ? 'Registrierung erfolgreich! Bitte bestätige deine Email.' 
+        : 'Registrierung erfolgreich! Email-Versand fehlgeschlagen - bitte kontaktiere Support.',
       data: {
         token,
-        user: sanitizeUser(newUser)
+        user: sanitizeUser(newUser),
+        emailVerified: false,
+        emailSent
       }
     });
   } catch (error) {
@@ -336,6 +415,15 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
+    // Check if email is verified
+    if (!user.emailVerified) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Bitte bestätige erst deine Email-Adresse. Prüfe dein Postfach.',
+        emailVerified: false 
+      });
+    }
+
     const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '30d' });
 
     res.json({
@@ -348,6 +436,113 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// ==================== EMAIL VERIFICATION ====================
+
+app.post('/api/auth/send-verification', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const user = await User.findOne({ username });
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Benutzer nicht gefunden' 
+      });
+    }
+
+    if (user.emailVerified) {
+      return res.json({ 
+        success: true, 
+        message: 'Email bereits verifiziert' 
+      });
+    }
+
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    user.verificationToken = verificationToken;
+    await user.save();
+
+    // Send verification email
+    const verificationLink = `${process.env.APP_URL || 'https://dailyvibes.vercel.app'}/verify-email?token=${verificationToken}`;
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Daily Vibes - Email Bestätigung',
+      html: `
+        <h2>Willkommen bei Daily Vibes!</h2>
+        <p>Hallo ${user.username},</p>
+        <p>Bitte bestätige deine Email-Adresse, indem du auf den folgenden Link klickst:</p>
+        <a href="${verificationLink}" style="display: inline-block; padding: 10px 20px; background-color: #FF6B9D; color: white; text-decoration: none; border-radius: 5px;">Email bestätigen</a>
+        <p>Oder kopiere diesen Link in deinen Browser:</p>
+        <p>${verificationLink}</p>
+        <p>Dieser Link ist 24 Stunden gültig.</p>
+      `
+    };
+
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      await emailTransporter.sendMail(mailOptions);
+      res.json({ 
+        success: true, 
+        message: 'Bestätigungs-Email gesendet' 
+      });
+    } else {
+      // For development: return token directly
+      res.json({ 
+        success: true, 
+        message: 'Email-Service nicht konfiguriert',
+        devToken: verificationToken 
+      });
+    }
+  } catch (error) {
+    console.error('Send-Verification-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+app.get('/api/auth/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Verification Token erforderlich' 
+      });
+    }
+
+    const user = await User.findOne({ verificationToken: token });
+
+    if (!user) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Ungültiger Bestätigungslink' 
+      });
+    }
+
+    // Check if token is expired
+    if (user.verificationTokenExpiry && user.verificationTokenExpiry < new Date()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Bestätigungslink ist abgelaufen. Bitte fordere einen neuen an.' 
+      });
+    }
+
+    user.emailVerified = true;
+    user.verificationToken = null;
+    user.verificationTokenExpiry = null;
+    await user.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Email erfolgreich verifiziert! Du kannst dich jetzt einloggen.' 
+    });
+  } catch (error) {
+    console.error('Verify-Email-Fehler:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
   }
 });
