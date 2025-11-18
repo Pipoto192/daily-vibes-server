@@ -1076,13 +1076,13 @@ app.get('/api/photos/memories', authenticateToken, async (req, res) => {
 
 app.post('/api/photos/like', authenticateToken, async (req, res) => {
   try {
-    const { photoUsername, photoDate } = req.body;
+    const { photoId, photoUsername, photoDate } = req.body;
     const username = req.user.username;
 
-    const photo = await Photo.findOne({
-      username: photoUsername,
-      date: photoDate
-    });
+    // Use photoId if provided, otherwise fall back to username+date for backward compatibility
+    const photo = photoId 
+      ? await Photo.findById(photoId)
+      : await Photo.findOne({ username: photoUsername, date: photoDate });
 
     if (!photo) {
       return res.status(404).json({ 
@@ -1124,7 +1124,7 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
 
 app.post('/api/photos/comment', authenticateToken, async (req, res) => {
   try {
-    const { photoUsername, photoDate, text } = req.body;
+    const { photoId, photoUsername, photoDate, text } = req.body;
     const username = req.user.username;
 
     if (!text || text.trim().length === 0) {
@@ -1134,10 +1134,10 @@ app.post('/api/photos/comment', authenticateToken, async (req, res) => {
       });
     }
 
-    const photo = await Photo.findOne({
-      username: photoUsername,
-      date: photoDate
-    });
+    // Use photoId if provided, otherwise fall back to username+date for backward compatibility
+    const photo = photoId
+      ? await Photo.findById(photoId)
+      : await Photo.findOne({ username: photoUsername, date: photoDate });
 
     if (!photo) {
       return res.status(404).json({ 
