@@ -14,7 +14,7 @@ try {
   nodemailer = require('nodemailer');
   console.log('✅ Nodemailer geladen, Version:', nodemailer.version || 'unbekannt');
   console.log('✅ Nodemailer Typ:', typeof nodemailer);
-  console.log('✅ createTransporter Typ:', typeof nodemailer.createTransporter);
+  console.log('✅ createTransport Typ:', typeof nodemailer.createTransport);
 } catch (e) {
   console.warn('⚠️  Nodemailer konnte nicht geladen werden:', e.message);
   nodemailer = null;
@@ -25,10 +25,10 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'daily-vibes-secret-key-2024';
 
 // Email transporter configuration (Brevo/Sendinblue)
-if (nodemailer && typeof nodemailer.createTransporter === 'function') {
+if (nodemailer && typeof nodemailer.createTransport === 'function') {
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
     try {
-      emailTransporter = nodemailer.createTransporter({
+      emailTransporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
         port: parseInt(process.env.EMAIL_PORT) || 587,
         secure: false,
