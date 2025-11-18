@@ -727,7 +727,9 @@ app.get('/api/photos/today', authenticateToken, async (req, res) => {
         const photoUser = await User.findOne({ username: photo.username });
         return {
           ...photo.toObject(),
-          userProfileImage: photoUser?.profileImage || null
+          userProfileImage: photoUser?.profileImage || null,
+          userStreak: photoUser?.streak || 0,
+          userAchievements: photoUser?.achievements || []
         };
       })
     );
