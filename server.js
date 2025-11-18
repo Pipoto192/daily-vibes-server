@@ -8,7 +8,15 @@ const cron = require('node-cron');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'daily-vibes-secret-key-2024';
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/dailyvibes';
+
+// MONGODB_URI is REQUIRED - no fallback to localhost
+if (!process.env.MONGODB_URI) {
+  console.error('❌ FEHLER: MONGODB_URI Umgebungsvariable nicht gesetzt!');
+  console.error('📝 Bitte setze MONGODB_URI in Koyeb Environment Variables:');
+  console.error('   mongodb+srv://dailyvibes:PASSWORD@dailyvibes.nj7bvvc.mongodb.net/dailyvibes?retryWrites=true&w=majority&appName=dailyvibes');
+  process.exit(1);
+}
+const MONGODB_URI = process.env.MONGODB_URI;
 
 // Middleware
 app.use(cors());
