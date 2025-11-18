@@ -349,7 +349,7 @@ app.post('/api/auth/register', async (req, res) => {
     const verificationLink = `${process.env.APP_URL || 'https://dailyvibes.vercel.app'}/verify-email?token=${verificationToken}`;
     
     const mailOptions = {
-      from: `Daily Vibes <${process.env.EMAIL_USER}>`,
+      from: process.env.EMAIL_FROM || 'Daily Vibes <noreply@dailyvibes.app>',
       to: email,
       subject: '📸 Daily Vibes - Bestätige deine Email',
       html: `
@@ -689,7 +689,7 @@ app.post('/api/profile/email', authenticateToken, async (req, res) => {
       try {
         const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
         await emailTransporter.sendMail({
-          from: `"Daily Vibes" <${process.env.EMAIL_USER}>`,
+          from: process.env.EMAIL_FROM || 'Daily Vibes <noreply@dailyvibes.app>',
           to: newEmail,
           subject: '📧 Bestätige deine neue Email-Adresse',
           html: `
