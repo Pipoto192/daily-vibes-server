@@ -5,11 +5,19 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const cron = require('node-cron');
 const crypto = require('crypto');
-let nodemailer;
+
+let nodemailer = null;
+let emailTransporter = null;
+
+// Try to load nodemailer
 try {
   nodemailer = require('nodemailer');
+  console.log('✅ Nodemailer geladen, Version:', nodemailer.version || 'unbekannt');
+  console.log('✅ Nodemailer Typ:', typeof nodemailer);
+  console.log('✅ createTransporter Typ:', typeof nodemailer.createTransporter);
 } catch (e) {
-  console.warn('⚠️  Nodemailer nicht installiert');
+  console.warn('⚠️  Nodemailer konnte nicht geladen werden:', e.message);
+  nodemailer = null;
 }
 
 const app = express();
@@ -17,24 +25,28 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'daily-vibes-secret-key-2024';
 
 // Email transporter configuration (Brevo/Sendinblue)
-let emailTransporter = null;
-if (nodemailer && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-  try {
-    emailTransporter = nodemailer.createTransporter({
-      host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-      port: parseInt(process.env.EMAIL_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-    console.log('📧 Email-Service konfiguriert');
-  } catch (error) {
-    console.warn('⚠️  Email-Service Fehler:', error.message);
+if (nodemailer && typeof nodemailer.createTransporter === 'function') {
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    try {
+      emailTransporter = nodemailer.createTransporter({
+        host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: false,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+      console.log('📧 Email-Service erfolgreich konfiguriert');
+    } catch (error) {
+      console.warn('⚠️  Email-Service Fehler:', error.message);
+      emailTransporter = null;
+    }
+  } else {
+    console.warn('⚠️  Email-Umgebungsvariablen fehlen (EMAIL_USER, EMAIL_PASS)');
   }
 } else {
-  console.warn('⚠️  Email-Service nicht konfiguriert (fehlende Umgebungsvariablen)');
+  console.warn('⚠️  Nodemailer nicht verfügbar - Email-Versand deaktiviert');
 }
 
 // MONGODB_URI is REQUIRED - no fallback to localhost
