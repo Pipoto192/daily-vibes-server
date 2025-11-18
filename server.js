@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
 const app = express();
@@ -12,15 +11,23 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'daily-vibes-secret-key-2024';
 
 // Email transporter configuration (Brevo/Sendinblue)
-const emailTransporter = nodemailer.createTransporter({
-  host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-  port: process.env.EMAIL_PORT || 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+let emailTransporter = null;
+try {
+  const nodemailer = require('nodemailer');
+  emailTransporter = nodemailer.createTransporter({
+    host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+    port: parseInt(process.env.EMAIL_PORT) || 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
+  console.log('📧 Email-Service konfiguriert');
+} catch (error) {
+  console.warn('⚠️  Nodemailer konnte nicht geladen werden:', error.message);
+  console.warn('📧 Email-Versand wird deaktiviert');
+}
 
 // MONGODB_URI is REQUIRED - no fallback to localhost
 if (!process.env.MONGODB_URI) {
@@ -358,7 +365,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Try to send email
     let emailSent = false;
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    if (emailTransporter && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       try {
         await emailTransporter.sendMail(mailOptions);
         emailSent = true;
@@ -484,7 +491,7 @@ app.post('/api/auth/send-verification', authenticateToken, async (req, res) => {
       `
     };
 
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    if (emailTransporter && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       await emailTransporter.sendMail(mailOptions);
       res.json({ 
         success: true, 
