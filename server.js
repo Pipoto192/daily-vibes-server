@@ -35,6 +35,7 @@ const userSchema = new mongoose.Schema({
   streak: { type: Number, default: 0 },
   lastPhotoDate: { type: String, default: null },
   achievements: [{ type: String }],
+  memoriesPublic: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -907,6 +908,194 @@ app.delete('/api/photos/delete', authenticateToken, async (req, res) => {
     res.json({ success: true, message: 'Foto gelöscht' });
   } catch (error) {
     console.error('Delete-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// ==================== MEMORY ENDPOINTS ====================
+
+// Get memory calendar (dates with photos)
+app.get('/api/memories/calendar', authenticateToken, async (req, res) => {
+  try {
+    const { username, year, month } = req.query;
+    const requestingUser = req.user.username;
+
+    // Check if requesting own calendar or friend's calendar
+    const targetUsername = username || requestingUser;
+
+    // If requesting friend's calendar, check if memories are public
+    if (targetUsername !== requestingUser) {
+      const targetUser = await User.findOne({ username: targetUsername });
+      if (!targetUser) {
+        return res.status(404).json({ success: false, message: 'Benutzer nicht gefunden' });
+      }
+
+      // Check if they are friends
+      const currentUser = await User.findOne({ username: requestingUser });
+      if (!currentUser.friends.includes(targetUsername)) {
+        return res.status(403).json({ success: false, message: 'Nicht berechtigt' });
+      }
+
+      // Check if memories are public
+      if (!targetUser.memoriesPublic) {
+        return res.status(403).json({ success: false, message: 'Memories sind privat' });
+      }
+    }
+
+    // Get all photos for the user
+    let query = { username: targetUsername };
+    
+    // Filter by year and month if provided
+    if (year && month) {
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+      query.date = { $gte: startDate, $lte: endDate };
+    }
+
+    const photos = await Photo.find(query).select('date');
+    
+    // Group by date and count
+    const calendar = photos.reduce((acc, photo) => {
+      if (!acc[photo.date]) {
+        acc[photo.date] = 0;
+      }
+      acc[photo.date]++;
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      data: { calendar, username: targetUsername }
+    });
+  } catch (error) {
+    console.error('Calendar-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Get memories for a specific date
+app.get('/api/memories/date/:date', authenticateToken, async (req, res) => {
+  try {
+    const { date } = req.params;
+    const { username } = req.query;
+    const requestingUser = req.user.username;
+
+    // Check if requesting own memories or friend's memories
+    const targetUsername = username || requestingUser;
+
+    // If requesting friend's memories, check if memories are public
+    if (targetUsername !== requestingUser) {
+      const targetUser = await User.findOne({ username: targetUsername });
+      if (!targetUser) {
+        return res.status(404).json({ success: false, message: 'Benutzer nicht gefunden' });
+      }
+
+      // Check if they are friends
+      const currentUser = await User.findOne({ username: requestingUser });
+      if (!currentUser.friends.includes(targetUsername)) {
+        return res.status(403).json({ success: false, message: 'Nicht berechtigt' });
+      }
+
+      // Check if memories are public
+      if (!targetUser.memoriesPublic) {
+        return res.status(403).json({ success: false, message: 'Memories sind privat' });
+      }
+    }
+
+    const photos = await Photo.find({
+      username: targetUsername,
+      date: date
+    }).sort({ createdAt: 1 });
+
+    res.json({
+      success: true,
+      data: { photos, date, username: targetUsername }
+    });
+  } catch (error) {
+    console.error('Date-Memories-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Toggle memories public/private
+app.post('/api/memories/toggle-privacy', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const user = await User.findOne({ username });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Benutzer nicht gefunden' });
+    }
+
+    user.memoriesPublic = !user.memoriesPublic;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: user.memoriesPublic ? 'Memories sind jetzt öffentlich' : 'Memories sind jetzt privat',
+      data: { memoriesPublic: user.memoriesPublic }
+    });
+  } catch (error) {
+    console.error('Toggle-Privacy-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Get memories privacy status
+app.get('/api/memories/privacy', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.query;
+    const targetUsername = username || req.user.username;
+
+    const user = await User.findOne({ username: targetUsername });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Benutzer nicht gefunden' });
+    }
+
+    res.json({
+      success: true,
+      data: { memoriesPublic: user.memoriesPublic || false, username: targetUsername }
+    });
+  } catch (error) {
+    console.error('Privacy-Status-Fehler:', error);
+    res.status(500).json({ success: false, message: 'Serverfehler' });
+  }
+});
+
+// Get friend's memories overview (only if public)
+app.get('/api/friends/:username/memories', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const requestingUser = req.user.username;
+
+    // Check if they are friends
+    const currentUser = await User.findOne({ username: requestingUser });
+    const targetUser = await User.findOne({ username });
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Benutzer nicht gefunden' });
+    }
+
+    if (!currentUser.friends.includes(username)) {
+      return res.status(403).json({ success: false, message: 'Nicht berechtigt' });
+    }
+
+    if (!targetUser.memoriesPublic) {
+      return res.status(403).json({ success: false, message: 'Memories sind privat' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const memories = await Photo.find({
+      username,
+      date: { $ne: today }
+    }).sort({ date: -1 }).limit(50);
+
+    res.json({
+      success: true,
+      data: { photos: memories, username }
+    });
+  } catch (error) {
+    console.error('Friend-Memories-Fehler:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
   }
 });
