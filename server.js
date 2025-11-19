@@ -601,6 +601,32 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Get current user profile
+app.get('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Benutzer nicht gefunden' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: { user: sanitizeUser(user) }
+    });
+  } catch (error) {
+    console.error('Profil-Laden-Fehler:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Serverfehler' 
+    });
+  }
+});
+
 app.post('/api/profile/image', authenticateToken, async (req, res) => {
   try {
     const { profileImage } = req.body;
