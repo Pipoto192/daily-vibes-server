@@ -1079,10 +1079,21 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
     const { photoId, photoUsername, photoDate } = req.body;
     const username = req.user.username;
 
-    // Use photoId if provided, otherwise fall back to username+date for backward compatibility
-    const photo = photoId 
-      ? await Photo.findById(photoId)
-      : await Photo.findOne({ username: photoUsername, date: photoDate });
+    let photo = null;
+
+    // Use photoId if provided and valid
+    if (photoId && photoId !== 'null' && photoId !== 'undefined') {
+      try {
+        photo = await Photo.findById(photoId);
+      } catch (e) {
+        console.log('Invalid photoId:', photoId, e.message);
+      }
+    }
+    
+    // Fall back to username+date if photoId didn't work
+    if (!photo && photoUsername && photoDate) {
+      photo = await Photo.findOne({ username: photoUsername, date: photoDate });
+    }
 
     if (!photo) {
       return res.status(404).json({ 
@@ -1134,10 +1145,21 @@ app.post('/api/photos/comment', authenticateToken, async (req, res) => {
       });
     }
 
-    // Use photoId if provided, otherwise fall back to username+date for backward compatibility
-    const photo = photoId
-      ? await Photo.findById(photoId)
-      : await Photo.findOne({ username: photoUsername, date: photoDate });
+    let photo = null;
+
+    // Use photoId if provided and valid
+    if (photoId && photoId !== 'null' && photoId !== 'undefined') {
+      try {
+        photo = await Photo.findById(photoId);
+      } catch (e) {
+        console.log('Invalid photoId:', photoId, e.message);
+      }
+    }
+    
+    // Fall back to username+date if photoId didn't work
+    if (!photo && photoUsername && photoDate) {
+      photo = await Photo.findOne({ username: photoUsername, date: photoDate });
+    }
 
     if (!photo) {
       return res.status(404).json({ 
