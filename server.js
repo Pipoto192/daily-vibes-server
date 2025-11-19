@@ -171,6 +171,27 @@ function sanitizeUser(user) {
   };
 }
 
+// ==================== HEALTH CHECK ====================
+
+// Root endpoint for health checks
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Daily Vibes Server is running',
+    timestamp: new Date().toISOString(),
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    mongodb: mongoose.connection.readyState === 1,
+    uptime: process.uptime()
+  });
+});
+
 // Notification Helper Functions
 const activeDevices = new Map(); // username -> { deviceToken, platform }
 
