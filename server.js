@@ -1010,6 +1010,7 @@ app.get('/api/photos/today', authenticateToken, async (req, res) => {
         const photoObj = photo.toObject();
         return {
           ...photoObj,
+          id: photoObj._id.toString(), // Add id field for Flutter
           _id: photoObj._id.toString(), // Ensure _id is a string
           userProfileImage: photoUser?.profileImage || null,
           userStreak: photoUser?.streak || 0,
@@ -1044,6 +1045,7 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
       const photoObj = photo.toObject();
       return {
         ...photoObj,
+        id: photoObj._id.toString(), // Add id field for Flutter
         _id: photoObj._id.toString(), // Ensure _id is a string
         userStreak: user?.streak || 0,
         userAchievements: [] // Could add achievements later
