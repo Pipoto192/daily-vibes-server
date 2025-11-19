@@ -1213,9 +1213,12 @@ app.delete('/api/photos/delete', authenticateToken, async (req, res) => {
     const { photoId } = req.body;
     const username = req.user.username;
 
-    const photo = await Photo.findOne({ id: photoId });
+    console.log('Delete request for photoId:', photoId, 'by user:', username);
+
+    const photo = await Photo.findById(photoId);
 
     if (!photo) {
+      console.log('Photo not found:', photoId);
       return res.status(404).json({ 
         success: false, 
         message: 'Foto nicht gefunden' 
@@ -1223,13 +1226,14 @@ app.delete('/api/photos/delete', authenticateToken, async (req, res) => {
     }
 
     if (photo.username !== username) {
+      console.log('Permission denied: photo owner is', photo.username);
       return res.status(403).json({ 
         success: false, 
         message: 'Du kannst nur deine eigenen Fotos löschen' 
       });
     }
 
-    await Photo.deleteOne({ id: photoId });
+    await Photo.findByIdAndDelete(photoId);
 
     res.json({ success: true, message: 'Foto gelöscht' });
   } catch (error) {
