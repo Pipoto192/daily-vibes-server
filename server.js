@@ -1007,8 +1007,10 @@ app.get('/api/photos/today', authenticateToken, async (req, res) => {
     const photosWithProfiles = await Promise.all(
       todayPhotos.map(async (photo) => {
         const photoUser = await User.findOne({ username: photo.username });
+        const photoObj = photo.toObject();
         return {
-          ...photo.toObject(),
+          ...photoObj,
+          _id: photoObj._id.toString(), // Ensure _id is a string
           userProfileImage: photoUser?.profileImage || null,
           userStreak: photoUser?.streak || 0,
           userAchievements: photoUser?.achievements || []
@@ -1038,11 +1040,15 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
 
     // Add user streak and achievements to own photos
     const user = await User.findOne({ username });
-    const photosWithUserData = myPhotos.map(photo => ({
-      ...photo.toObject(),
-      userStreak: user?.streak || 0,
-      userAchievements: [] // Could add achievements later
-    }));
+    const photosWithUserData = myPhotos.map(photo => {
+      const photoObj = photo.toObject();
+      return {
+        ...photoObj,
+        _id: photoObj._id.toString(), // Ensure _id is a string
+        userStreak: user?.streak || 0,
+        userAchievements: [] // Could add achievements later
+      };
+    });
 
     res.json({
       success: true,
