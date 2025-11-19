@@ -1085,12 +1085,15 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
     const { photoId, photoUsername, photoDate } = req.body;
     const username = req.user.username;
 
+    console.log(`Like request - photoId: ${photoId}, photoUsername: ${photoUsername}, photoDate: ${photoDate}`);
+
     let photo = null;
 
     // Use photoId if provided and valid
     if (photoId && photoId !== 'null' && photoId !== 'undefined') {
       try {
         photo = await Photo.findById(photoId);
+        console.log(`Found photo by ID: ${photo?._id}`);
       } catch (e) {
         console.log('Invalid photoId:', photoId, e.message);
       }
@@ -1099,6 +1102,7 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
     // Fall back to username+date if photoId didn't work
     if (!photo && photoUsername && photoDate) {
       photo = await Photo.findOne({ username: photoUsername, date: photoDate });
+      console.log(`Found photo by username+date: ${photo?._id}`);
     }
 
     if (!photo) {
