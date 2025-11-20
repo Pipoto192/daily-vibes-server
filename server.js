@@ -855,8 +855,9 @@ app.post('/api/profile/password', authenticateToken, async (req, res) => {
 // ==================== CHALLENGE ENDPOINTS ====================
 
 app.get('/api/challenge/today', authenticateToken, async (req, res) => {
+  const _timeLabel_challenge_today = `[API] /api/challenge/today - ${Date.now()} - ${Math.random().toString(36).slice(2,8)}`;
+  console.time(_timeLabel_challenge_today);
   try {
-    console.time('[API] /api/challenge/today');
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     
@@ -893,8 +894,9 @@ app.get('/api/challenge/today', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Challenge-Fehler:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
+  } finally {
+    try { console.timeEnd(_timeLabel_challenge_today); } catch (e) { /* ignore timing errors */ }
   }
-  console.timeEnd('[API] /api/challenge/today');
 });
 
 app.post('/api/admin/challenge/set', authenticateAdmin, async (req, res) => {
@@ -1038,8 +1040,9 @@ app.post('/api/photos/upload', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/photos/today', authenticateToken, async (req, res) => {
+  const _timeLabel_photos_today = `[API] /api/photos/today - ${Date.now()} - ${Math.random().toString(36).slice(2,8)}`;
+  console.time(_timeLabel_photos_today);
   try {
-    console.time('[API] /api/photos/today');
     const today = new Date().toISOString().split('T')[0];
     const username = req.user.username;
 
@@ -1075,7 +1078,8 @@ app.get('/api/photos/today', authenticateToken, async (req, res) => {
         userAchievements: photoUser?.achievements || []
       };
     });
-    console.timeEnd('[API] /api/photos/today');
+    // TODO: add more precise timing if necessary
+    // end timing in finally
 
     res.json({
       success: true,
@@ -1084,15 +1088,18 @@ app.get('/api/photos/today', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Fotos-Laden-Fehler:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
+  } finally {
+    try { console.timeEnd(_timeLabel_photos_today); } catch (e) { /* ignore timing errors */ }
   }
 });
 
 app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
+  const _timeLabel_photos_me_today = `[API] /api/photos/me/today - ${Date.now()} - ${Math.random().toString(36).slice(2,8)}`;
+  console.time(_timeLabel_photos_me_today);
   try {
     const today = new Date().toISOString().split('T')[0];
     const username = req.user.username;
 
-    console.time('[API] /api/photos/me/today');
     const myPhotos = await Photo.find({
       username,
       date: today
@@ -1111,7 +1118,7 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
       };
     });
 
-    console.timeEnd('[API] /api/photos/me/today');
+    // end timing in finally
     res.json({
       success: true,
       photos: photosWithUserData
@@ -1119,6 +1126,8 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Mein-Foto-Fehler:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
+  } finally {
+    try { console.timeEnd(_timeLabel_photos_me_today); } catch (e) { /* ignore timing errors */ }
   }
 });
 
