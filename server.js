@@ -1162,12 +1162,15 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
     }
 
     if (!photo.likes) photo.likes = [];
-
+    const previousLikes = Array.from(photo.likes || []);
     const likeIndex = photo.likes.indexOf(username);
+    let action = 'added';
     if (likeIndex >= 0) {
       photo.likes.splice(likeIndex, 1);
+      action = 'removed';
     } else {
       photo.likes.push(username);
+      action = 'added';
       // Send notification to photo owner
       if (photoUsername !== username) {
         await sendNotificationToUser(
@@ -1180,8 +1183,13 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
       }
     }
 
-    await photo.save();
-    console.log(`Photo ${photo._id} likes now: ${photo.likes.length}`);
+    try {
+      await photo.save();
+      console.log(`Like action: user=${username} ${action} like on photo=${photo._id}. before=${previousLikes.length}, after=${photo.likes.length}, beforeList=${JSON.stringify(previousLikes)}`);
+    } catch (e) {
+      console.error(`Error saving likes for photo=${photo._id}:`, e);
+      return res.status(500).json({ success: false, message: 'Serverfehler beim Speichern des Likes' });
+    }
 
     // Return the updated photo likes to the client so the UI can sync
     const photoObj = photo.toObject();
