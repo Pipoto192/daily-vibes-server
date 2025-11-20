@@ -1181,6 +1181,7 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
     }
 
     await photo.save();
+    console.log(`Photo ${photo._id} likes now: ${photo.likes.length}`);
 
     // Return the updated photo likes to the client so the UI can sync
     const photoObj = photo.toObject();
