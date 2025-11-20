@@ -97,6 +97,9 @@ const photoSchema = new mongoose.Schema({
   }],
   createdAt: { type: Date, default: Date.now }
 });
+// Add indexes to accelerate common queries
+photoSchema.index({ date: 1, username: 1 });
+photoSchema.index({ username: 1, date: 1 });
 
 const challengeSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
@@ -853,6 +856,7 @@ app.post('/api/profile/password', authenticateToken, async (req, res) => {
 
 app.get('/api/challenge/today', authenticateToken, async (req, res) => {
   try {
+    console.time('[API] /api/challenge/today');
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     
@@ -890,6 +894,7 @@ app.get('/api/challenge/today', authenticateToken, async (req, res) => {
     console.error('Challenge-Fehler:', error);
     res.status(500).json({ success: false, message: 'Serverfehler' });
   }
+  console.timeEnd('[API] /api/challenge/today');
 });
 
 app.post('/api/admin/challenge/set', authenticateAdmin, async (req, res) => {
@@ -1034,6 +1039,7 @@ app.post('/api/photos/upload', authenticateToken, async (req, res) => {
 
 app.get('/api/photos/today', authenticateToken, async (req, res) => {
   try {
+    console.time('[API] /api/photos/today');
     const today = new Date().toISOString().split('T')[0];
     const username = req.user.username;
 
@@ -1046,25 +1052,30 @@ app.get('/api/photos/today', authenticateToken, async (req, res) => {
     }
 
     const friends = user.friends || [];
+    // Use a single query to fetch photos for today and then bulk-get user info
     const todayPhotos = await Photo.find({
       date: today,
       username: { $in: friends }
-    });
+    }).lean();
 
-    const photosWithProfiles = await Promise.all(
-      todayPhotos.map(async (photo) => {
-        const photoUser = await User.findOne({ username: photo.username });
-        const photoObj = photo.toObject();
-        return {
-          ...photoObj,
-          id: photoObj._id.toString(), // Add id field for Flutter
-          _id: photoObj._id.toString(), // Ensure _id is a string
-          userProfileImage: photoUser?.profileImage || null,
-          userStreak: photoUser?.streak || 0,
-          userAchievements: photoUser?.achievements || []
-        };
-      })
-    );
+    // Collect unique usernames to fetch profiles in one query
+    const uniqueUsernames = [...new Set(todayPhotos.map(p => p.username))];
+    const users = await User.find({ username: { $in: uniqueUsernames } }).select('username profileImage streak achievements').lean();
+    const userMap = {};
+    for (const u of users) userMap[u.username] = u;
+
+    const photosWithProfiles = todayPhotos.map(photo => {
+      const photoUser = userMap[photo.username];
+      return {
+        ...photo,
+        id: photo._id ? photo._id.toString() : photo.id,
+        _id: photo._id ? photo._id.toString() : photo.id,
+        userProfileImage: photoUser?.profileImage || null,
+        userStreak: photoUser?.streak || 0,
+        userAchievements: photoUser?.achievements || []
+      };
+    });
+    console.timeEnd('[API] /api/photos/today');
 
     res.json({
       success: true,
@@ -1081,10 +1092,11 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const username = req.user.username;
 
+    console.time('[API] /api/photos/me/today');
     const myPhotos = await Photo.find({
       username,
       date: today
-    }).sort({ createdAt: 1 });
+    }).sort({ createdAt: 1 }).lean();
 
     // Add user streak and achievements to own photos
     const user = await User.findOne({ username });
@@ -1099,6 +1111,7 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
       };
     });
 
+    console.timeEnd('[API] /api/photos/me/today');
     res.json({
       success: true,
       photos: photosWithUserData
@@ -1131,7 +1144,8 @@ app.get('/api/photos/memories', authenticateToken, async (req, res) => {
 
 app.post('/api/photos/like', authenticateToken, async (req, res) => {
   try {
-    const { photoId, photoUsername, photoDate } = req.body;
+    // 'set' is optional boolean; if provided, server will try to apply that state (true => like, false => unlike)
+    const { photoId, photoUsername, photoDate, set } = req.body;
     const username = req.user.username;
 
     console.log(`Like request - photoId: ${photoId}, photoUsername: ${photoUsername}, photoDate: ${photoDate}`);
@@ -1163,28 +1177,66 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
 
     if (!photo.likes) photo.likes = [];
     const previousLikes = Array.from(photo.likes || []);
-    const likeIndex = photo.likes.indexOf(username);
-    let action = 'added';
-    if (likeIndex >= 0) {
-      photo.likes.splice(likeIndex, 1);
-      action = 'removed';
-    } else {
-      photo.likes.push(username);
-      action = 'added';
-      // Send notification to photo owner
-      if (photoUsername !== username) {
-        await sendNotificationToUser(
-          photoUsername,
-          '❤️ Neuer Like!',
-          `${username} hat dein Foto geliked!`,
-          'like',
-          username
+    let action = 'unchanged';
+    let updatedPhoto = null;
+
+    // Use atomic findOneAndUpdate to avoid race conditions
+    if (typeof set === 'boolean') {
+      if (set === true) {
+        // add user if not already present
+        updatedPhoto = await Photo.findOneAndUpdate(
+          { _id: photo._id, likes: { $ne: username } },
+          { $push: { likes: username } },
+          { new: true }
         );
+        action = updatedPhoto ? 'added' : 'unchanged';
+      } else {
+        // remove user if present
+        updatedPhoto = await Photo.findOneAndUpdate(
+          { _id: photo._id, likes: username },
+          { $pull: { likes: username } },
+          { new: true }
+        );
+        action = updatedPhoto ? 'removed' : 'unchanged';
       }
+    } else {
+      // toggle behavior (existing semantics)
+      const likeIndex = photo.likes.indexOf(username);
+      if (likeIndex >= 0) {
+        updatedPhoto = await Photo.findOneAndUpdate(
+          { _id: photo._id, likes: username },
+          { $pull: { likes: username } },
+          { new: true }
+        );
+        action = 'removed';
+      } else {
+        updatedPhoto = await Photo.findOneAndUpdate(
+          { _id: photo._id, likes: { $ne: username } },
+          { $push: { likes: username } },
+          { new: true }
+        );
+        action = 'added';
+      }
+    }
+    // If we used findOneAndUpdate, get photo from updatedPhoto; otherwise fallback
+    if (updatedPhoto) photo = updatedPhoto;
+
+    // Send notification to photo owner if a new like was added
+    if (action === 'added' && photoUsername !== username) {
+      await sendNotificationToUser(
+        photoUsername,
+        '❤️ Neuer Like!',
+        `${username} hat dein Foto geliked!`,
+        'like',
+        username
+      );
     }
 
     try {
-      await photo.save();
+      // If we used atomic updates, photo already saved. Otherwise save.
+      if (!updatedPhoto) {
+        await photo.save();
+      }
       console.log(`Like action: user=${username} ${action} like on photo=${photo._id}. before=${previousLikes.length}, after=${photo.likes.length}, beforeList=${JSON.stringify(previousLikes)}`);
     } catch (e) {
       console.error(`Error saving likes for photo=${photo._id}:`, e);
