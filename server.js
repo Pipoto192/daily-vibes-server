@@ -1182,9 +1182,21 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
 
     await photo.save();
 
+    // Return the updated photo likes to the client so the UI can sync
+    const photoObj = photo.toObject();
+    // Provide id & likes and minimal fields
+    const responsePhoto = {
+      id: photo._id.toString(),
+      username: photoObj.username,
+      date: photoObj.date,
+      likes: photoObj.likes || [],
+      comments: photoObj.comments || []
+    };
+
     res.json({
       success: true,
-      message: 'Like aktualisiert'
+      message: 'Like aktualisiert',
+      photo: responsePhoto
     });
   } catch (error) {
     console.error('Like-Fehler:', error);
