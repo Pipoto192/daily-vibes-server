@@ -551,7 +551,7 @@ app.get('/api/challenge/today', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       challenge: {
-        ...todayChallenge.toObject(),
+        ...((todayChallenge && typeof todayChallenge.toObject === 'function') ? todayChallenge.toObject() : todayChallenge),
         date: todayStr,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString()
@@ -725,8 +725,9 @@ app.get('/api/photos/today', authenticateToken, async (req, res) => {
     const photosWithProfiles = await Promise.all(
       todayPhotos.map(async (photo) => {
         const photoUser = await User.findOne({ username: photo.username });
+        const photoObj = (photo && typeof photo.toObject === 'function') ? photo.toObject() : photo;
         return {
-          ...photo.toObject(),
+          ...photoObj,
           userProfileImage: photoUser?.profileImage || null
         };
       })

@@ -884,7 +884,7 @@ app.get('/api/challenge/today', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       challenge: {
-        ...todayChallenge.toObject(),
+        ...((todayChallenge && typeof todayChallenge.toObject === 'function') ? todayChallenge.toObject() : todayChallenge),
         date: todayStr,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString()
@@ -1101,7 +1101,7 @@ app.get('/api/photos/me/today', authenticateToken, async (req, res) => {
     // Add user streak and achievements to own photos
     const user = await User.findOne({ username });
     const photosWithUserData = myPhotos.map(photo => {
-      const photoObj = photo.toObject();
+      const photoObj = (photo && typeof photo.toObject === 'function') ? photo.toObject() : photo;
       return {
         ...photoObj,
         id: photoObj._id.toString(), // Add id field for Flutter
@@ -1244,7 +1244,7 @@ app.post('/api/photos/like', authenticateToken, async (req, res) => {
     }
 
     // Return the updated photo likes to the client so the UI can sync
-    const photoObj = photo.toObject();
+    const photoObj = (photo && typeof photo.toObject === 'function') ? photo.toObject() : photo;
     // Provide id & likes and minimal fields
     const responsePhoto = {
       id: photo._id.toString(),
